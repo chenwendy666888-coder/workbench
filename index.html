@@ -87,6 +87,9 @@ body{margin:0;display:flex;font-family:var(--f-body);background:var(--bg);color:
 .feed-add{border:1px dashed var(--border-2);background:transparent;color:var(--muted);cursor:pointer;
   font-family:var(--f-data);font-size:11px;padding:6px;border-radius:var(--radius);margin-top:6px;flex:none;}
 .feed-add:hover{border-color:var(--amber);color:var(--amber);}
+.feed-sum{margin:6px 0 9px;min-height:2px;}
+.feed-sum-bd{font-size:12px;line-height:1.7;color:var(--ink-2);white-space:normal;
+  background:var(--sunken);border-left:2px solid var(--amber);border-radius:var(--radius);padding:7px 9px;}
 .pet-float{position:fixed;left:20px;top:78px;z-index:9997;display:flex;flex-direction:column;align-items:center;gap:6px;user-select:none;}
 .pet{width:90px;height:90px;border:none;background:transparent;cursor:grab;padding:0;line-height:0;transition:opacity .2s;}
 .pet:active{cursor:grabbing;}
@@ -541,6 +544,30 @@ a.qname:hover{color:var(--accent);text-decoration:underline;}
   .main{height:auto;padding:18px 16px 60px;}
 }
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+/* ===== weather widget ===== */
+.wthr-now{display:flex;gap:12px;align-items:center;margin-bottom:10px;}
+.wthr-ico{font-size:40px;line-height:1;filter:drop-shadow(0 3px 8px rgba(0,0,0,.4));}
+.wthr-temp{font-family:var(--f-pixel);font-size:22px;color:var(--accent);text-shadow:0 0 12px rgba(47,184,198,.4);}
+[data-theme="day"] .wthr-temp{font-family:var(--f-data);font-weight:700;font-size:24px;text-shadow:none;}
+.wthr-days{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;border-top:1px solid var(--border);padding-top:9px;}
+.wthr-day{display:flex;flex-direction:column;align-items:center;gap:2px;font-family:var(--f-data);font-size:12px;}
+.wthr-day b{font-size:13px;color:var(--ink);}
+.wthr-dlbl{color:var(--muted);font-size:10px;}
+.wthr-dico{font-size:20px;}
+/* ===== feed + chat widgets ===== */
+.feed-srcs{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:2px;}
+.feed-src{display:inline-flex;align-items:center;gap:4px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:2px 6px;font-family:var(--f-data);font-size:10.5px;color:var(--muted);}
+.feed-src .x{cursor:pointer;color:var(--faint);}
+.feed-src .x:hover{color:var(--red);}
+.feed-list2{display:flex;flex-direction:column;gap:6px;max-height:240px;overflow:auto;margin-top:4px;}
+.feed-item2{display:flex;flex-direction:column;gap:1px;text-decoration:none;color:var(--ink);padding:5px 7px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);transition:.1s;}
+.feed-item2:hover{border-color:var(--amber);}
+.fi-tt{font-family:var(--f-ui);font-size:12.5px;line-height:1.35;}
+.fi-meta{font-family:var(--f-data);font-size:10px;color:var(--muted);}
+.chat-body{display:flex;flex-direction:column;gap:6px;max-height:220px;overflow:auto;margin-bottom:2px;}
+.chat-b{font-family:var(--f-ui);font-size:12.5px;line-height:1.45;padding:6px 8px;border-radius:var(--radius);white-space:pre-wrap;word-break:break-word;}
+.chat-b.user{background:var(--accent-soft);border:1px solid var(--accent-line);align-self:flex-end;max-width:90%;}
+.chat-b.ai{background:var(--surface);border:1px solid var(--border);align-self:flex-start;max-width:95%;}
 </style>
 </head>
 <body>
@@ -666,6 +693,10 @@ function seed(){
       {id:uid(),name:'36氪 · 科技',url:'https://36kr.com'},
       {id:uid(),name:'FT中文网',url:'https://www.ftchinese.com'}
     ],
+    feedSources:[
+      {id:uid(),url:'https://sspai.com/feed'},
+      {id:uid(),url:'https://www.36kr.com/feed'}
+    ],
     quotes:[
       '你被允许安静下来，不必时时都在冲刺。',
       '慢一点，也来得及。',
@@ -709,7 +740,7 @@ if(!store||typeof store!=='object') store=seed();
 (function migrate(){
   const base=seed();
   for(const k in base){ if(!(k in store)) store[k]=base[k]; }
-  ['quicklinks','websites','templateCats','applications','materials','prep','todos','thoughts','backlog','aiLinks','sidelinks','quotes','togo','focusLog','habits','diary','homeLayout']
+  ['quicklinks','websites','templateCats','applications','materials','prep','todos','thoughts','backlog','aiLinks','sidelinks','quotes','togo','focusLog','habits','diary','feedSources','homeLayout']
     .forEach(k=>{ if(!Array.isArray(store[k])) store[k]=base[k]; });
   store.todos.forEach(t=>{ if(t.createdAt==null) t.createdAt=t.doneAt||now(); if(t.scope==null) t.scope='week'; if(t.scope==='long') t.scope='impnu'; });
   store.quicklinks.forEach(q=>{ if(!Array.isArray(q.children)) q.children=[]; if(q.open==null) q.open=false; });
@@ -722,6 +753,8 @@ if(!store||typeof store!=='object') store=seed();
   store.habits.forEach(hb=>{ if(!Array.isArray(hb.log)) hb.log=[]; });
   if(!Array.isArray(store.diary)) store.diary=base.diary;
   if(!Array.isArray(store.homeLayout)||!store.homeLayout.length) store.homeLayout=base.homeLayout;
+  if(store.weatherDismissed==null) store.weatherDismissed=false;
+  if(!store.weatherDismissed && store.homeLayout.indexOf('weather')<0) store.homeLayout.push('weather');
 })();
 function save(){ localStorage.setItem(KEY, JSON.stringify(store)); snapshot(); }
 
@@ -1064,9 +1097,118 @@ function wgAI(){ return '<div class="hud"><div class="eyebrow" style="margin-bot
 function wgTodos(){ return '<div>'+panelLabel('TASKS · 待办')+todosInner()+'</div>'; }
 function wgHabits(){ const h=habitMini(); return h||'<div class="hcard"><div class="hcard-head"><span class="nm">✓ 今日习惯</span><button class="linkbtn" data-action="goto" data-view="review">去复盘 →</button></div><div class="muted small">还没有习惯，去复盘页加。</div></div>'; }
 function wgProjects(){ const t=togoMini(); return t||'<div class="hcard"><div class="hcard-head"><span class="nm">◆ 项目进度</span><button class="linkbtn" data-action="goto" data-view="todos">去待办 →</button></div><div class="muted small">还没有项目。</div></div>'; }
+function wgWeather(){
+  const city=store.weatherCity||'上海';
+  return '<div class="hud"><div class="eyebrow" style="margin-bottom:9px">天气 · <span id="wthr-loc">'+esc(city)+'</span></div>'+
+    '<div style="display:flex;gap:6px;align-items:center;margin-bottom:8px">'+
+    '<input id="wthr-city" value="'+esc(city)+'" placeholder="城市名" style="flex:1;min-width:0;background:var(--sunken);border:1px solid var(--border);color:var(--ink);border-radius:var(--radius);padding:5px 7px;font-family:var(--f-data);font-size:12px">'+
+    '<button class="btn sm" data-action="wthr-go">查</button></div>'+
+    '<div id="wthr-body" class="muted small">加载中…</div></div>';
+}
+function dayLabel(d){ const w=['日','一','二','三','四','五','六']; const dt=new Date(d+'T00:00'); if(isNaN(dt.getTime())) return ''; return '周'+w[dt.getDay()]; }
+function loadWeather(){
+  const body=document.getElementById('wthr-body'); if(!body) return;
+  const city=(store.weatherCity||'上海');
+  const loc=document.getElementById('wthr-loc'); if(loc) loc.textContent=city;
+  fetch('/api/weather?city='+encodeURIComponent(city))
+    .then(r=>r.json().catch(()=>({})))
+    .then(d=>{
+      if(!d||d.error){ body.innerHTML='<span class="muted small">'+(d&&d.error? d.error : '暂无可用的天气服务')+'</span>'; return; }
+      const daily=(d.daily||[]).slice(0,3).map(x=>'<div class="wthr-day"><span class="wthr-dico">'+x.icon+'</span><span class="wthr-dlbl">'+dayLabel(x.date)+'</span><b>'+Math.round(x.max)+'°</b></div>').join('');
+      body.innerHTML='<div class="wthr-now"><span class="wthr-ico">'+d.icon+'</span>'+
+        '<div class="wthr-now-txt"><div class="wthr-temp">'+d.temp+'°</div>'+
+        '<div class="muted small">'+d.desc+' · 湿 '+d.humidity+'% · 风 '+Math.round(d.wind)+'km/h</div></div></div>'+
+        '<div class="wthr-days">'+daily+'</div>';
+    })
+    .catch(()=>{ body.innerHTML='<span class="muted small">需要后端 <code>/api/weather</code>（部署到 Vercel 后即可显示）</span>'; });
+}
+function wgFeed(){
+  const srcs=(store.feedSources||[]);
+  const chips=srcs.map(s=>'<span class="feed-src">'+esc(s.url)+'<span class="x" data-action="feed-del" data-id="'+s.id+'">✕</span></span>').join('');
+  return '<div class="hud"><div class="eyebrow" style="margin-bottom:9px">资讯流</div>'+
+    '<div class="feed-srcs">'+(chips||'<span class="muted small">还没有源，下面加一个 RSS</span>')+'</div>'+
+    '<div style="display:flex;gap:6px;align-items:center;margin:8px 0">'+
+    '<input id="feed-src" placeholder="RSS 地址，如 https://sspai.com/feed" style="flex:1;min-width:0;background:var(--sunken);border:1px solid var(--border);color:var(--ink);border-radius:var(--radius);padding:5px 7px;font-family:var(--f-data);font-size:12px">'+
+    '<button class="btn sm" data-action="feed-add">+ 源</button><button class="btn sm ghost" data-action="feed-refresh">↻</button><button class="btn sm ghost" data-action="feed-summary">要点</button></div>'+
+    '<div id="feed-sum" class="feed-sum"></div>'+
+    '<div id="feed-body" class="muted small">加载中…</div></div>';
+}
+let feedItemsCache=[];
+async function fetchFeedItems(){
+  const srcs=(store.feedSources||[]).map(s=>s.url);
+  if(!srcs.length) return [];
+  try{
+    const r=await fetch('/api/feed',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sources:srcs})});
+    const d=await r.json().catch(()=>({}));
+    if(!d||d.error) return [];
+    const items=[]; (d.feeds||[]).forEach(f=>{ (f.items||[]).forEach(it=> items.push(Object.assign({f:f.title},it))); });
+    items.sort((a,b)=> (new Date(b.pubDate||0))-(new Date(a.pubDate||0)));
+    return items;
+  }catch(e){ return []; }
+}
+function loadFeed(){
+  const body=document.getElementById('feed-body'); if(!body) return;
+  const srcs=(store.feedSources||[]).map(s=>s.url);
+  if(!srcs.length){ body.innerHTML='<span class="muted small">添加一个 RSS 源即可看到资讯</span>'; return; }
+  body.innerHTML='<span class="muted small">抓取中…</span>';
+  fetchFeedItems().then(items=>{
+    feedItemsCache=items;
+    if(!items.length){ body.innerHTML='<span class="muted small">源暂无可读条目（可能需联网 / 源失效）</span>'; return; }
+    body.innerHTML='<div class="feed-list2">'+items.slice(0,12).map(it=>
+      '<a class="feed-item2" href="'+esc(it.link||'#')+'" target="_blank" rel="noopener">'+
+      '<span class="fi-tt">'+esc(it.title||'(无标题)')+'</span>'+
+      '<span class="fi-meta">'+esc(it.f||'')+'</span></a>').join('')+'</div>';
+  }).catch(()=>{ body.innerHTML='<span class="muted small">需要后端 <code>/api/feed</code>（部署到 Vercel 后可用）</span>'; });
+}
+async function feedSummary(){
+  const sum=document.getElementById('feed-sum'); if(!sum) return;
+  if(!feedItemsCache.length) feedItemsCache=await fetchFeedItems();
+  if(!feedItemsCache.length){ sum.innerHTML='<span class="muted small">先加 RSS 源并刷新</span>'; return; }
+  const text=feedItemsCache.map(i=>'· '+(i.title||'')).slice(0,15).join('\n');
+  sum.innerHTML='<span class="muted small">生成要点中…</span>';
+  try{
+    const r=await fetch('/api/summarize',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})});
+    const d=await r.json().catch(()=>({}));
+    if(d.error){ sum.innerHTML='<span class="muted small">'+(d.error)+'（需配置 AI Key）</span>'; return; }
+    sum.innerHTML='<div class="feed-sum-bd">'+esc(d.summary||'(无)').replace(/\n/g,'<br>')+'</div>';
+  }catch(e){ sum.innerHTML='<span class="muted small">需要后端 /api/summarize（部署并配置 Key 后可用）</span>'; }
+}
+let chatMsgs=[];
+function wgChat(){
+  const bubbles=chatMsgs.map(m=>'<div class="chat-b '+m.role+'">'+esc(m.content)+'</div>').join('');
+  return '<div class="hud"><div class="eyebrow" style="margin-bottom:9px;color:var(--pink)">AI 聊天</div>'+
+    '<div id="chat-body" class="chat-body">'+ (bubbles||'<span class="muted small">和 AI 随便聊聊（部署并配置 Key 后可用）</span>') +'</div>'+
+    '<div style="display:flex;gap:6px;align-items:center;margin-top:8px">'+
+    '<input id="chat-input" placeholder="说点什么…" style="flex:1;min-width:0;background:var(--sunken);border:1px solid var(--border);color:var(--ink);border-radius:var(--radius);padding:6px 8px;font-family:var(--f-data);font-size:12px">'+
+    '<button class="btn sm" data-action="chat-send">发送</button><button class="btn sm ghost" data-action="chat-clear">清</button></div></div>';
+}
+function appendChat(t){ const s=document.getElementById('chat-stream'); if(!s) return; const old=s.querySelector('.muted'); if(old) old.remove(); s.textContent+=t; }
+async function sendChat(){
+  const inp=document.getElementById('chat-input'); if(!inp) return;
+  const text=inp.value.trim(); if(!text) return;
+  inp.value='';
+  chatMsgs.push({role:'user',content:text});
+  const body=document.getElementById('chat-body');
+  if(body) body.innerHTML=chatMsgs.map(m=>'<div class="chat-b '+m.role+'">'+esc(m.content)+'</div>').join('')+'<div class="chat-b ai" id="chat-stream"><span class="muted small">思考中…</span></div>';
+  const stream=document.getElementById('chat-stream');
+  try{
+    const res=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:chatMsgs.slice()})});
+    if(!res.ok||!res.body){ const t=await res.json().catch(()=>({})); if(stream) stream.innerHTML='<span class="muted small">出错：'+(t.error||res.status)+'</span>'; return; }
+    const reader=res.body.getReader(); const dec=new TextDecoder(); let buf='';
+    while(true){ const {done,value}=await reader.read(); if(done) break; buf+=dec.decode(value,{stream:true});
+      let idx; while((idx=buf.indexOf('\n\n'))>=0){ const chunk=buf.slice(0,idx); buf=buf.slice(idx+2);
+        chunk.split('\n').forEach(line=>{ if(line.startsWith('data: ')){ const data=line.slice(6).trim(); if(data==='[DONE]') return;
+          try{ const j=JSON.parse(data); const c=j.choices&&j.choices[0]&&j.choices[0].delta&&j.choices[0].delta.content; if(c) appendChat(c); if(j.error) appendChat(' [错误:'+j.error+']'); }catch(e){} } } ); }
+    }
+    if(stream) stream.removeAttribute('id');
+  }catch(e){ if(stream) stream.innerHTML='<span class="muted small">需要后端 /api/chat（部署并配置 Key 后可用）</span>'; }
+}
 const WIDGETS={
   quote:{name:'每日鼓励语',cls:'full',render:quoteHTML},
   clock:{name:'时钟 · 状态',cls:'',render:wgClock},
+  weather:{name:'天气',cls:'',render:wgWeather},
+  feed:{name:'资讯',cls:'',render:wgFeed},
+  chat:{name:'AI 聊天',cls:'',render:wgChat},
   quicklinks:{name:'常用入口',cls:'',render:wgQuick},
   ailinks:{name:'AI 助手',cls:'',render:wgAI},
   todos:{name:'待办',cls:'wide',render:wgTodos},
@@ -1078,7 +1220,7 @@ const WIDGETS={
   applications:{name:'申请进度',cls:'',render:()=>homeCard('申请进度','⊞','applications',appMini(),'add-app','申请')},
   prep:{name:'投递准备',cls:'',render:()=>homeCard('投递准备','◆','prep',prepMini(),'add-prep','准备项')}
 };
-const DEFAULT_HOME=['quote','clock','quicklinks','ailinks','todos','scratch','habits','projects','websites','templates','applications','prep'];
+const DEFAULT_HOME=['quote','clock','weather','quicklinks','ailinks','todos','scratch','habits','projects','websites','templates','applications','prep','feed','chat'];
 let _homeEdit=false;
 function homeLayout(){ const l=(store.homeLayout&&store.homeLayout.length)? store.homeLayout.filter(id=>WIDGETS[id]) : DEFAULT_HOME.slice(); return l; }
 function widgetWrap(id){ const w=WIDGETS[id]; if(!w) return '';
@@ -1096,7 +1238,7 @@ function renderWorkbench(){
   document.getElementById('view-workbench').innerHTML=
     bar+'<div class="widget-grid'+(_homeEdit?' editing':'')+'" id="widget-grid">'+l.map(widgetWrap).join('')+'</div>';
   if(_homeEdit) attachWidgetDrag();
-  tickClock();
+  tickClock(); loadWeather(); loadFeed();
 }
 function attachWidgetDrag(){
   const grid=document.getElementById('widget-grid'); if(!grid) return; let dragged=null;
@@ -1686,9 +1828,16 @@ function handleClick(btn){
     case 'goto': switchView(btn.dataset.view); break;
     case 'shuffle-quote': { const n=(store.quotes||[]).length; if(n>1){ let r; do{ r=Math.floor(Math.random()*n); }while(r===_quoteIdx&&n>1); _quoteIdx=r; renderWorkbench(); } break; }
     case 'toggle-home-edit': _homeEdit=!_homeEdit; renderWorkbench(); break;
-    case 'remove-widget': { store.homeLayout=homeLayout().filter(id=>id!==btn.dataset.wid); save(); renderWorkbench(); break; }
+    case 'remove-widget': { if(btn.dataset.wid==='weather') store.weatherDismissed=true; store.homeLayout=homeLayout().filter(id=>id!==btn.dataset.wid); save(); renderWorkbench(); break; }
     case 'add-widget': { const l=homeLayout(); if(l.indexOf(btn.dataset.wid)<0){ l.push(btn.dataset.wid); store.homeLayout=l; save(); } closeModal(); renderWorkbench(); break; }
     case 'reset-home': if(confirm('恢复主页默认布局？')){ store.homeLayout=DEFAULT_HOME.slice(); save(); renderWorkbench(); } break;
+    case 'wthr-go': { const inp=document.getElementById('wthr-city'); const c=(inp&&inp.value||'').trim(); if(c){ store.weatherCity=c; save(); loadWeather(); } break; }
+    case 'feed-add': { const i=document.getElementById('feed-src'); const v=(i&&i.value||'').trim(); if(v){ store.feedSources.push({id:uid(),url:v}); save(); renderWorkbench(); } break; }
+    case 'feed-del': { store.feedSources=store.feedSources.filter(s=>s.id!==btn.dataset.id); save(); renderWorkbench(); break; }
+    case 'feed-refresh': { loadFeed(); break; }
+    case 'feed-summary': { feedSummary(); break; }
+    case 'chat-send': { sendChat(); break; }
+    case 'chat-clear': { chatMsgs=[]; const b=document.getElementById('chat-body'); if(b) b.innerHTML='<span class="muted small">和 AI 随便聊聊（部署并配置 Key 后可用）</span>'; break; }
     case 'open-add-widget': openAddWidget(); break;
     case 'add-quote': openForm('加一句鼓励语',[{name:'text',label:'写给自己的话',type:'textarea',placeholder:'如：你被允许安静下来。'}],
       v=>{ if((v.text||'').trim()){ store.quotes.push(v.text.trim()); _quoteIdx=store.quotes.length-1; save(); renderWorkbench(); } }); break;

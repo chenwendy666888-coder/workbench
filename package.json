@@ -1,0 +1,13 @@
+{
+  "name": "workbench-stageA",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vercel dev",
+    "deploy": "vercel --prod"
+  },
+  "dependencies": {
+    "rss-parser": "^3.13.0"
+  }
+}
