@@ -568,6 +568,11 @@ a.qname:hover{color:var(--accent);text-decoration:underline;}
 .chat-b{font-family:var(--f-ui);font-size:12.5px;line-height:1.45;padding:6px 8px;border-radius:var(--radius);white-space:pre-wrap;word-break:break-word;}
 .chat-b.user{background:var(--accent-soft);border:1px solid var(--accent-line);align-self:flex-end;max-width:90%;}
 .chat-b.ai{background:var(--surface);border:1px solid var(--border);align-self:flex-start;max-width:95%;}
+.insp-list{display:flex;flex-direction:column;gap:7px;}
+.insp-item{display:flex;gap:8px;align-items:center;background:var(--sunken);border:1px solid var(--border);border-radius:var(--radius);padding:7px 9px;}
+.insp-tt{font-family:var(--f-ui);font-size:12.5px;line-height:1.35;flex:1;min-width:0;}
+.insp-btns{display:flex;gap:5px;flex-shrink:0;}
+.insp-btns .btn{white-space:nowrap;}
 </style>
 </head>
 <body>
@@ -1173,6 +1178,114 @@ async function feedSummary(){
     sum.innerHTML='<div class="feed-sum-bd">'+esc(d.summary||'(无)').replace(/\n/g,'<br>')+'</div>';
   }catch(e){ sum.innerHTML='<span class="muted small">需要后端 /api/summarize（部署并配置 Key 后可用）</span>'; }
 }
+function wgDaily(){
+  return '<div class="hud"><div class="eyebrow" style="margin-bottom:9px;color:var(--amber)">每日简报</div>'+
+    '<div style="display:flex;gap:6px;align-items:center;margin-bottom:8px">'+
+    '<button class="btn sm ghost" data-action="daily-refresh">↻ 刷新</button>'+
+    '<button class="btn sm ghost" data-action="daily-summary">今日摘要</button>'+
+    '<span class="muted small" id="daily-upd"></span></div>'+
+    '<div id="daily-sum" class="feed-sum"></div>'+
+    '<div id="daily-body" class="muted small">加载中…</div></div>';
+}
+let dailyItemsCache=[];
+async function loadDaily(){
+  const body=document.getElementById('daily-body'); if(!body) return;
+  body.innerHTML='<span class="muted small">汇总中…</span>';
+  try{
+    const r=await fetch('/api/daily');
+    const d=await r.json().catch(()=>({}));
+    if(!d||d.error){ body.innerHTML='<span class="muted small">'+(d&&d.error||'无错误')+'</span>'; return; }
+    dailyItemsCache=d.items||[];
+    const upd=document.getElementById('daily-upd'); if(upd&&d.updated) upd.textContent='更新于 '+(d.updated||'').slice(11,16);
+    if(!dailyItemsCache.length){ body.innerHTML='<span class="muted small">暂无条目</span>'; return; }
+    body.innerHTML='<div class="feed-list2">'+dailyItemsCache.map(it=>
+      '<a class="feed-item2" href="'+esc(it.link||'#')+'" target="_blank" rel="noopener">'+
+      '<span class="fi-tt">'+esc(it.title||'(无标题)')+'</span>'+
+      '<span class="fi-meta">'+esc(it.source||'')+'</span></a>').join('')+'</div>';
+  }catch(e){ body.innerHTML='<span class="muted small">需要后端 <code>/api/daily</code>（部署后可用）</span>'; }
+}
+async function dailySummary(){
+  const sum=document.getElementById('daily-sum'); if(!sum) return;
+  if(!dailyItemsCache.length){ try{ const r=await fetch('/api/daily'); const d=await r.json().catch(()=>({})); dailyItemsCache=d.items||[]; }catch(e){} }
+  if(!dailyItemsCache.length){ sum.innerHTML='<span class="muted small">暂无可摘要内容</span>'; return; }
+  const text=dailyItemsCache.map(i=>'· '+(i.title||'')).slice(0,20).join('\n');
+  sum.innerHTML='<span class="muted small">生成摘要中…</span>';
+  try{
+    const r=await fetch('/api/summarize',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})});
+    const d=await r.json().catch(()=>({}));
+    if(d.error){ sum.innerHTML='<span class="muted small">'+(d.error)+'（需配置 AI Key）</span>'; return; }
+    sum.innerHTML='<div class="feed-sum-bd">'+esc(d.summary||'(无)').replace(/\n/g,'<br>')+'</div>';
+  }catch(e){ sum.innerHTML='<span class="muted small">需要后端 /api/summarize（部署并配置 Key 后可用）</span>'; }
+}
+// ===== 灵感推荐池（豆包式"每日话题"）=====
+// 纯前端、免 key；分 3 大类，随机抽 6 个展示；"深入聊聊"唤起 AI 带维度讲解。
+const INSPIRE_POOL=[
+  // 人文 · 哲学 · 思辨
+  '俄狄浦斯情结在心理学上到底怎么解释？',
+  '康德的"二律背反"是什么？有哪些经典例子？',
+  '存在主义说"存在先于本质"是什么意思？',
+  '荣格的心理类型"八维"怎么理解？',
+  '尼采说"上帝已死"到底在说什么？',
+  '什么是"异化"？马克思与存在主义各自怎么看？',
+  '叔本华的悲观主义哲学核心是什么？',
+  '萨特说"他人即地狱"，"凝视"与"他者"怎么理解？',
+  '道家的"无为"是消极，还是一种高级智慧？',
+  '斯多葛学派如何面对痛苦与无常？',
+  '福柯说的"规训"是什么？权力怎样通过知识运作？',
+  '康德的"绝对命令"怎么理解？',
+  // 认知 · 财富 · 行为心理
+  '哪些消费习惯会悄悄阻碍财富积累？',
+  '为什么我们明明知道该存钱，却总忍不住花？',
+  '"拿铁因子"：微小支出的复利陷阱有多可怕？',
+  '拖延背后的心理机制到底是什么？',
+  '什么是"精神内耗"？如何停止反复消耗自己？',
+  '"损失厌恶"如何扭曲我们的决策？',
+  '锚定效应：为什么第一眼看到的价格决定了判断？',
+  '"沉没成本"为什么让人越陷越深？',
+  '稀缺心态如何让人变"笨"（带宽税）？',
+  '什么是"双曲贴现"？为什么我们偏爱即时满足？',
+  '社会比较如何悄悄偷走我们的幸福感？',
+  '成长型思维真的能改变人生吗？',
+  // 科普 · 逻辑 · 思想实验
+  '电车难题：为什么怎么选都让人难受？',
+  '薛定谔的猫：叠加态到底是真的吗？',
+  '缸中之脑：我们如何证明自己不是被模拟的？',
+  '忒修斯之船：换掉所有零件后，它还是原来那艘吗？',
+  '中文房间思想实验在质疑什么？',
+  '什么是"奥卡姆剃刀"？更简单的理论一定更好吗？',
+  '囚徒困境：理性人为何会选出最差的结果？',
+  '费米悖论：外星人到底在哪里？',
+  '什么是"幸存者偏差"？为什么失败者的声音听不见？',
+  '蝴蝶效应与混沌理论：小事件真能改变世界吗？',
+  '哥德尔不完备定理对"真理"意味着什么？',
+  '图灵测试在今天还成立吗？'
+];
+function shuffleArr(a){ a=a.slice(); for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); const t=a[i];a[i]=a[j];a[j]=t; } return a; }
+function renderInspireItems(){
+  const picks=shuffleArr(INSPIRE_POOL).slice(0,6);
+  return '<div class="insp-list">'+picks.map(t=>
+    '<div class="insp-item"><span class="insp-tt">'+esc(t)+'</span>'+
+    '<span class="insp-btns"><button class="btn sm ghost" data-action="inspire-chat" data-topic="'+esc(t)+'">深入聊聊</button>'+
+    '<button class="btn sm ghost" data-action="inspire-doubao" data-topic="'+esc(t)+'">去豆包</button></span></div>').join('')+'</div>';
+}
+function wgInspire(){
+  return '<div class="hud"><div class="eyebrow" style="margin-bottom:9px;color:var(--amber)">灵感推荐 · 今日话题</div>'+
+    '<div style="display:flex;gap:6px;align-items:center;margin-bottom:8px">'+
+    '<button class="btn sm ghost" data-action="inspire-refresh">换一批</button>'+
+    '<span class="muted small">点「深入聊聊」让 AI 讲透它</span></div>'+
+    '<div id="inspire-body">'+renderInspireItems()+'</div></div>';
+}
+function openChatWith(topic){
+  const prompt=topic+' —— 请从以下几个维度，系统、深入地帮我理解这个话题：\n1) 核心定义与本质\n2) 背后的理论体系 / 学科脉络\n3) 历史与思想背景\n4) 现实中的例子与应用\n5) 常见误解与边界\n讲解完我们可以继续追问。';
+  const layout=homeLayout();
+  if(!layout.includes('chat')){ store.homeLayout.push('chat'); save(); renderWorkbench(); }
+  setTimeout(()=>{ const inp=document.getElementById('chat-input'); if(inp){ inp.value=prompt; sendChat(); } }, 90);
+}
+async function openExternalDoubao(topic, btn){
+  try{ await navigator.clipboard.writeText(topic); }catch(e){}
+  window.open('https://www.doubao.com','_blank','noopener');
+  if(btn){ const o=btn.textContent; btn.textContent='已复制 ✓'; setTimeout(()=>{ if(btn) btn.textContent=o; }, 1600); }
+}
 let chatMsgs=[];
 function wgChat(){
   const bubbles=chatMsgs.map(m=>'<div class="chat-b '+m.role+'">'+esc(m.content)+'</div>').join('');
@@ -1209,6 +1322,8 @@ const WIDGETS={
   weather:{name:'天气',cls:'',render:wgWeather},
   feed:{name:'资讯',cls:'',render:wgFeed},
   chat:{name:'AI 聊天',cls:'',render:wgChat},
+  daily:{name:'每日简报',cls:'',render:wgDaily},
+  inspire:{name:'灵感推荐',cls:'',render:wgInspire},
   quicklinks:{name:'常用入口',cls:'',render:wgQuick},
   ailinks:{name:'AI 助手',cls:'',render:wgAI},
   todos:{name:'待办',cls:'wide',render:wgTodos},
@@ -1220,7 +1335,7 @@ const WIDGETS={
   applications:{name:'申请进度',cls:'',render:()=>homeCard('申请进度','⊞','applications',appMini(),'add-app','申请')},
   prep:{name:'投递准备',cls:'',render:()=>homeCard('投递准备','◆','prep',prepMini(),'add-prep','准备项')}
 };
-const DEFAULT_HOME=['quote','clock','weather','quicklinks','ailinks','todos','scratch','habits','projects','websites','templates','applications','prep','feed','chat'];
+const DEFAULT_HOME=['quote','clock','weather','quicklinks','ailinks','todos','scratch','habits','projects','websites','templates','applications','prep','feed','chat','daily','inspire'];
 let _homeEdit=false;
 function homeLayout(){ const l=(store.homeLayout&&store.homeLayout.length)? store.homeLayout.filter(id=>WIDGETS[id]) : DEFAULT_HOME.slice(); return l; }
 function widgetWrap(id){ const w=WIDGETS[id]; if(!w) return '';
@@ -1238,7 +1353,7 @@ function renderWorkbench(){
   document.getElementById('view-workbench').innerHTML=
     bar+'<div class="widget-grid'+(_homeEdit?' editing':'')+'" id="widget-grid">'+l.map(widgetWrap).join('')+'</div>';
   if(_homeEdit) attachWidgetDrag();
-  tickClock(); loadWeather(); loadFeed();
+  tickClock(); loadWeather(); loadFeed(); loadDaily();
 }
 function attachWidgetDrag(){
   const grid=document.getElementById('widget-grid'); if(!grid) return; let dragged=null;
@@ -1836,6 +1951,11 @@ function handleClick(btn){
     case 'feed-del': { store.feedSources=store.feedSources.filter(s=>s.id!==btn.dataset.id); save(); renderWorkbench(); break; }
     case 'feed-refresh': { loadFeed(); break; }
     case 'feed-summary': { feedSummary(); break; }
+    case 'daily-refresh': { loadDaily(); break; }
+    case 'daily-summary': { dailySummary(); break; }
+    case 'inspire-refresh': { const ib=document.getElementById('inspire-body'); if(ib) ib.innerHTML=renderInspireItems(); break; }
+    case 'inspire-chat': { const t=btn.dataset.topic; if(t) openChatWith(t); break; }
+    case 'inspire-doubao': { const t=btn.dataset.topic; if(t) openExternalDoubao(t,btn); break; }
     case 'chat-send': { sendChat(); break; }
     case 'chat-clear': { chatMsgs=[]; const b=document.getElementById('chat-body'); if(b) b.innerHTML='<span class="muted small">和 AI 随便聊聊（部署并配置 Key 后可用）</span>'; break; }
     case 'open-add-widget': openAddWidget(); break;
