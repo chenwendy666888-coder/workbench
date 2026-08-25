@@ -413,6 +413,27 @@ a.qname:hover{color:var(--accent);text-decoration:underline;}
 .wprev-bar{display:flex;align-items:center;gap:8px;margin-top:11px;padding-top:11px;border-top:1px dashed var(--border);flex-wrap:wrap;}
 .wprev-frame{margin-top:9px;height:360px;border:1px solid var(--border-2);border-radius:var(--radius);overflow:hidden;background:#fff;}
 .wprev-frame iframe{border:none;display:block;}
+/* ===== card customizer / free adjust ===== */
+.web-list{display:grid!important;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:13px;align-items:start;}
+.cs-btn{color:var(--muted);}
+.cs-btn:hover{color:var(--accent);}
+.web-ai-row{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:8px 0 2px;}
+.ai-chip.sm{font-size:11px;padding:3px 8px;}
+.qkid-add{cursor:pointer;}
+.cs-swatches{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px;}
+.cs-sw{width:30px;height:30px;border-radius:8px;border:2px solid var(--border-2);cursor:pointer;position:relative;}
+.cs-sw.on{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-line);}
+.cs-sw.none{display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--muted);background:var(--surface-2);}
+.cs-seg{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;}
+.cs-seg button{padding:5px 11px;border:1px solid var(--border-2);background:var(--surface-2);color:var(--ink);border-radius:8px;cursor:pointer;font-size:12px;}
+.cs-seg button.on{border-color:var(--accent);color:var(--accent);}
+.kanban-prev{margin-top:8px;border:1px solid var(--border-2);border-radius:8px;overflow:hidden;background:#fff;height:130px;}
+.kanban-prev iframe{border:none;display:block;width:200%;height:260px;transform:scale(.5);transform-origin:top left;}
+.kb-toggle{background:none;border:none;color:var(--muted);cursor:pointer;font-size:11px;padding:2px 0;margin-top:4px;}
+.kb-toggle:hover{color:var(--accent);}
+.modal-box h3{cursor:move;user-select:none;}
+.modal-box h3::before{content:"⠿ ";opacity:.5;font-size:.85em;}
+.prep-link-btns{display:flex;gap:4px;align-items:center;}
 
 /* command palette */
 .cmdk{position:fixed;inset:0;background:rgba(3,7,11,.72);display:flex;align-items:flex-start;justify-content:center;
@@ -749,7 +770,11 @@ if(!store||typeof store!=='object') store=seed();
     .forEach(k=>{ if(!Array.isArray(store[k])) store[k]=base[k]; });
   store.todos.forEach(t=>{ if(t.createdAt==null) t.createdAt=t.doneAt||now(); if(t.scope==null) t.scope='week'; if(t.scope==='long') t.scope='impnu'; });
   store.quicklinks.forEach(q=>{ if(!Array.isArray(q.children)) q.children=[]; if(q.open==null) q.open=false; });
-  store.websites.forEach(w=>{ if(w.cat==null) w.cat='其他'; if(w.status==null) w.status='进行'; if(w.improve==null) w.improve=''; if(w.aiUrl==null) w.aiUrl=''; if(!Array.isArray(w.children)) w.children=[]; if(w.open==null) w.open=false; });
+  store.websites.forEach(w=>{ if(w.cat==null) w.cat='其他'; if(w.status==null) w.status='进行'; if(w.improve==null) w.improve=''; if(w.aiUrl==null) w.aiUrl=''; if(!Array.isArray(w.children)) w.children=[]; if(w.open==null) w.open=false;
+    if(!Array.isArray(w.aiLinks)){ w.aiLinks = (w.aiUrl && String(w.aiUrl).trim()) ? [{id:uid(),name:'AI 对话',url:w.aiUrl}] : []; }
+    if(w.kanbanClosed==null) w.kanbanClosed=false; });
+  store.prep.forEach(p=>{ if(p.link==null) p.link=''; });
+  if(!store.cardStyle || typeof store.cardStyle!=='object' || Array.isArray(store.cardStyle)) store.cardStyle={};
   store.templateCats.forEach(c=>{ if(c.group==null) c.group='其他'; (c.items||[]).forEach(it=>{ if(it.type==null) it.type='其他'; if(it.content==null) it.content=''; if(it.open==null) it.open=false; }); });
   if(!Array.isArray(store.quotes)||!store.quotes.length) store.quotes=base.quotes;
   if(!Array.isArray(store.togo)) store.togo=base.togo;
@@ -955,7 +980,7 @@ function todosInner(){
 }
 
 /* ===== modal ===== */
-function openForm(title,fields,onSubmit){
+function openForm(title,fields,onSubmit,note){
   document.getElementById('modal-body').innerHTML=
     '<h3>'+esc(title)+'</h3><form id="mf">'+
     fields.map(f=> '<label class="field"><span>'+esc(f.label)+'</span>'+
@@ -965,6 +990,7 @@ function openForm(title,fields,onSubmit){
           ? '<textarea name="'+f.name+'" rows="3" placeholder="'+esc(f.placeholder||'')+'">'+esc(f.value||'')+'</textarea>'
           : '<input name="'+f.name+'" type="'+(f.type||'text')+'" value="'+esc(f.value||'')+'" placeholder="'+esc(f.placeholder||'')+'">'))
     +'</label>').join('')+
+    (note?'<div class="tiny muted" style="margin:2px 0 10px">'+esc(note)+'</div>':'')+
     '<div class="modal-actions"><button type="button" class="btn" data-action="close-modal">取消</button><button type="submit" class="btn primary">保存</button></div>'+
     '</form>';
   document.getElementById('modal').classList.remove('hidden');
@@ -975,7 +1001,8 @@ function openForm(title,fields,onSubmit){
   });
   const first=mf.querySelector('input,select,textarea'); if(first) first.focus();
 }
-function closeModal(){ document.getElementById('modal').classList.add('hidden'); }
+function closeModal(){ document.getElementById('modal').classList.add('hidden');
+  const b=document.getElementById('modal-body'); if(b){ b.style.position=''; b.style.left=''; b.style.top=''; b.style.margin=''; } }
 
 /* ===== views ===== */
 const TITLES={
@@ -1339,9 +1366,10 @@ const DEFAULT_HOME=['quote','clock','weather','quicklinks','ailinks','todos','sc
 let _homeEdit=false;
 function homeLayout(){ const l=(store.homeLayout&&store.homeLayout.length)? store.homeLayout.filter(id=>WIDGETS[id]) : DEFAULT_HOME.slice(); return l; }
 function widgetWrap(id){ const w=WIDGETS[id]; if(!w) return '';
-  return '<div class="widget '+w.cls+(_homeEdit?' editing':'')+'" data-wid="'+id+'"'+(_homeEdit?' draggable="true"':'')+'>'+
-    (_homeEdit? '<div class="widget-bar"><span class="whandle">⠿ '+w.name+'</span><button class="icon-btn" data-action="remove-widget" data-wid="'+id+'" title="移除">✕</button></div>':'')+
-    '<div class="widget-body">'+w.render()+'</div></div>';
+  const key='wg:'+id; const box=csBox(key); const body=csBody(key);
+  return '<div class="widget '+w.cls+(_homeEdit?' editing':'')+'" data-wid="'+id+'"'+(box?' style="'+box+'"':'')+(_homeEdit?' draggable="true"':'')+'>'+
+    (_homeEdit? '<div class="widget-bar"><span class="whandle">⠿ '+w.name+'</span><span style="display:flex;gap:4px">'+csBtn(key,true)+'<button class="icon-btn" data-action="remove-widget" data-wid="'+id+'" title="移除">✕</button></span></div>':'')+
+    '<div class="widget-body"'+(body?' style="'+body+'"':'')+'>'+w.render()+'</div></div>';
 }
 function renderWorkbench(){
   const l=homeLayout();
@@ -1382,6 +1410,44 @@ function openAddWidget(){
   document.getElementById('modal').classList.remove('hidden');
 }
 
+/* ===== reusable card customizer: size + color, works on every page ===== */
+const CS_COLORS=[
+  ['','无色'],
+  ['rgba(47,184,198,.12)','青'],
+  ['rgba(233,109,161,.12)','粉'],
+  ['rgba(240,180,60,.13)','琥珀'],
+  ['rgba(80,200,120,.13)','绿'],
+  ['rgba(150,130,240,.13)','紫'],
+  ['rgba(120,140,160,.16)','石墨']
+];
+const CS_H=[['0','自动'],['180','矮'],['260','中'],['380','高']];
+const CS_W=[['1','1 格'],['2','2 格'],['full','整行']];
+function csGet(key){ return (store.cardStyle&&store.cardStyle[key])||{}; }
+function csBox(key){ const s=csGet(key); let o=''; if(s.bg){ o+='background:'+s.bg+';'; } if(s.w==='full') o+='grid-column:1/-1;'; else if(s.w==='2'||s.w===2) o+='grid-column:span 2;'; else if(s.w==='1'||s.w===1) o+='grid-column:auto;'; return o; }
+function csBody(key){ const s=csGet(key); return (s.h&&+s.h>0)? 'min-height:'+(+s.h)+'px;' : ''; }
+function csBtn(key,allowW){ return '<button class="icon-btn cs-btn" data-action="card-style" data-key="'+esc(key)+'" data-w="'+(allowW?'1':'0')+'" title="调整大小 / 颜色">⚙</button>'; }
+function openCardStyle(key,allowW){
+  const s=csGet(key);
+  const widthBlock = allowW ? ('<div class="field"><span>宽度</span><div class="cs-seg" data-cs="w">'+
+      CS_W.map(o=>'<button type="button" data-v="'+o[0]+'" class="'+((String(s.w||'1'))===o[0]?'on':'')+'">'+o[1]+'</button>').join('')+'</div></div>') : '';
+  const heightBlock = '<div class="field"><span>高度</span><div class="cs-seg" data-cs="h">'+
+      CS_H.map(o=>'<button type="button" data-v="'+o[0]+'" class="'+((String(s.h||'0'))===o[0]?'on':'')+'">'+o[1]+'</button>').join('')+'</div></div>';
+  const colorBlock = '<div class="field"><span>底色</span><div class="cs-swatches" data-cs="bg">'+
+      CS_COLORS.map(c=>'<div class="cs-sw'+(c[0]===''?' none':'')+((s.bg||'')===c[0]?' on':'')+'" data-v="'+esc(c[0])+'" title="'+c[1]+'" style="'+(c[0]?('background:'+c[0]):'')+'">'+(c[0]===''?'无':'')+'</div>').join('')+'</div></div>';
+  document.getElementById('modal-body').innerHTML='<h3>外观 · 大小 / 颜色</h3>'+
+    widthBlock+heightBlock+colorBlock+
+    '<div class="modal-actions"><button type="button" class="btn ghost" data-action="card-style-reset" data-key="'+esc(key)+'">恢复默认</button>'+
+    '<button type="button" class="btn primary" data-action="close-modal">完成</button></div>';
+  document.getElementById('modal').classList.remove('hidden');
+  const body=document.getElementById('modal-body');
+  body.querySelectorAll('.cs-seg').forEach(seg=>{ seg.addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b) return;
+    const kind=seg.dataset.cs; const cur=csGet(key); cur[kind]=b.dataset.v; store.cardStyle[key]=cur; save();
+    seg.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b)); refresh(); }); });
+  body.querySelector('.cs-swatches').addEventListener('click',e=>{ const sw=e.target.closest('.cs-sw'); if(!sw) return;
+    const cur=csGet(key); cur.bg=sw.dataset.v; store.cardStyle[key]=cur; save();
+    body.querySelectorAll('.cs-sw').forEach(x=>x.classList.toggle('on',x===sw)); refresh(); });
+}
+
 /* ===== WEBSITES (3 views: card / outline / kanban) ===== */
 const WEB_CATS=['生活','课内','课外','其他'];
 const WEB_STATUS=['想法','进行','完成','搁置'];
@@ -1400,10 +1466,15 @@ function previewHTML(id,url,scale){
 }
 function webActions(w){
   return '<span style="display:flex;gap:4px;align-items:center;flex:none">'+
-    (w.aiUrl?'<a class="btn sm" href="'+esc(w.aiUrl)+'"'+linkAttrs(w.aiUrl)+' style="text-decoration:none;border-color:var(--pink-line);color:var(--pink)">◧ AI 对话</a>':'')+
     '<a class="btn sm" href="'+esc(w.url)+'"'+linkAttrs(w.url)+' style="text-decoration:none">↗ 打开</a>'+
+    csBtn('web:'+w.id,true)+
     '<button class="icon-btn" data-action="edit-web" data-id="'+w.id+'" style="color:var(--accent)">✎</button>'+
     '<button class="icon-btn" data-action="del-web" data-id="'+w.id+'">✕</button></span>';
+}
+function webAiRow(w){
+  const chips=(w.aiLinks||[]).map(a=>'<a class="ai-chip sm" href="'+esc(a.url)+'"'+linkAttrs(a.url)+' title="'+esc(a.url)+'"><span class="arw">▸</span>'+esc(a.name)+
+    '<span class="x" data-action="del-web-ai" data-parent="'+w.id+'" data-id="'+a.id+'">✕</span></a>').join('');
+  return '<div class="web-ai-row">'+chips+'<button class="qkid-add" data-action="add-web-ai" data-id="'+w.id+'">+ 对话 / 链接（Claude、GitHub…）</button></div>';
 }
 function webDetails(w){
   if(!w.open) return '';
@@ -1416,8 +1487,10 @@ function webDetails(w){
     '</div>';
 }
 function webCard(w){
-  return '<div class="card web-card"><div class="card-top">'+
+  const key='web:'+w.id; const box=csBox(key); const body=csBody(key);
+  return '<div class="card web-card"'+(box?' style="'+box+'"':'')+'><div'+(body?' style="'+body+'"':'')+'><div class="card-top">'+
     '<a class="card-title" href="'+esc(w.url)+'"'+linkAttrs(w.url)+'>'+esc(w.name)+'</a>'+webActions(w)+'</div>'+
+    webAiRow(w)+
     '<div style="display:flex;gap:6px;align-items:center;margin:8px 0 2px;flex-wrap:wrap">'+
       '<span class="badge mut">'+esc(w.cat||'其他')+'</span>'+
       '<span class="badge '+(WEB_ST_CLASS[w.status]||'mut')+'">'+esc(w.status||'进行')+'</span>'+
@@ -1426,24 +1499,29 @@ function webCard(w){
     webDetails(w)+
     '<div class="wprev" id="wprev-'+w.id+'"></div>'+
     '<button class="btn sm" data-action="preview-web" data-id="'+w.id+'" data-url="'+esc(w.url)+'" style="margin-top:9px">▦ 预览</button>'+
-    '</div>';
+    '</div></div>';
 }
 function webOutline(){
   return WEB_CATS.map(cat=>{ const items=store.websites.filter(w=>w.cat===cat); if(!items.length) return '';
     return '<div class="cat"><div class="cat-head"><h3>'+esc(cat)+' <span class="tiny">'+items.length+'</span></h3></div>'+
       '<div class="cat-items">'+items.map(w=>'<div class="tpl"><div><a href="'+esc(w.url)+'"'+linkAttrs(w.url)+'>'+esc(w.name)+'</a> <span class="badge '+(WEB_ST_CLASS[w.status]||'mut')+'">'+esc(w.status)+'</span>'+
         (w.improve?'<div class="meta">'+esc(w.improve)+'</div>':'')+'</div>'+
-        '<span style="display:flex;gap:4px">'+(w.aiUrl?'<a class="linkbtn" href="'+esc(w.aiUrl)+'"'+linkAttrs(w.aiUrl)+'>AI</a>':'')+
+        '<span style="display:flex;gap:4px;align-items:center">'+((w.aiLinks||[]).map(a=>'<a class="linkbtn" href="'+esc(a.url)+'"'+linkAttrs(a.url)+' title="'+esc(a.name)+'">'+esc(a.name)+'</a>').join(''))+
         '<button class="icon-btn" data-action="edit-web" data-id="'+w.id+'" style="color:var(--accent)">✎</button></span></div>').join('')+'</div></div>';
   }).join('') || '<div class="empty">还没有网站。</div>';
 }
 function webKanban(){
+  const sb='allow-scripts allow-same-origin allow-popups allow-forms';
   return '<div class="kanban">'+WEB_CATS.map(cat=>{ const items=store.websites.filter(w=>w.cat===cat);
     return '<div class="kanban-col"><div class="kanban-head">'+esc(cat)+' <span class="tiny">'+items.length+'</span></div>'+
-      (items.length? items.map(w=>'<div class="kanban-card"><a href="'+esc(w.url)+'"'+linkAttrs(w.url)+'>'+esc(w.name)+'</a>'+
-        '<div style="display:flex;gap:5px;align-items:center;margin-top:6px"><span class="badge '+(WEB_ST_CLASS[w.status]||'mut')+'">'+esc(w.status)+'</span>'+
-        (w.aiUrl?'<a class="linkbtn" href="'+esc(w.aiUrl)+'"'+linkAttrs(w.aiUrl)+' style="margin-left:auto">AI</a>':'')+
-        '<button class="icon-btn" data-action="edit-web" data-id="'+w.id+'"'+(w.aiUrl?'':' style="margin-left:auto"')+'>✎</button></div></div>').join('')
+      (items.length? items.map(w=>{ const showP=!w.kanbanClosed;
+        return '<div class="kanban-card"><a href="'+esc(w.url)+'"'+linkAttrs(w.url)+'>'+esc(w.name)+'</a>'+
+        '<div style="display:flex;gap:5px;align-items:center;margin-top:6px;flex-wrap:wrap"><span class="badge '+(WEB_ST_CLASS[w.status]||'mut')+'">'+esc(w.status)+'</span>'+
+        ((w.aiLinks||[]).map(a=>'<a class="linkbtn" href="'+esc(a.url)+'"'+linkAttrs(a.url)+'>'+esc(a.name)+'</a>').join(''))+
+        '<button class="icon-btn" data-action="edit-web" data-id="'+w.id+'" style="margin-left:auto;color:var(--accent)">✎</button></div>'+
+        (showP? '<div class="kanban-prev"><iframe src="'+esc(w.url)+'" loading="lazy" sandbox="'+sb+'"></iframe></div>' : '')+
+        '<button class="kb-toggle" data-action="toggle-kanban-preview" data-id="'+w.id+'">'+(showP?'▾ 收起预览':'▸ 展开预览')+'</button>'+
+        '</div>'; }).join('')
         : '<div class="tiny" style="padding:6px">—</div>')+'</div>';
   }).join('')+'</div>';
 }
@@ -1537,14 +1615,16 @@ function renderApplications(){
     '<span class="nm">◇ 通用资料库</span><button class="btn sm" data-action="upload-global">↑ 上传</button></div>'+
     '<div class="muted small" style="margin-bottom:8px">可复用材料集中放这里（CV、作品集、成绩单…）</div>'+
     matList(store.materials,'global')+'</div>';
-  const apps=store.applications.length? store.applications.map(a=>'<div class="app-card"><div class="app-head">'+
+  const apps=store.applications.length? store.applications.map(a=>{ const key='app:'+a.id; const st=csBox(key)+csBody(key);
+    return '<div class="app-card"'+(st?' style="'+st+'"':'')+'><div class="app-head">'+
     '<span class="nm">'+esc(a.name)+'</span><div class="ctl">'+
     '<select data-action="set-app-status" data-id="'+a.id+'">'+APP_STATUS.map(s=>'<option'+(a.status===s?' selected':'')+'>'+s+'</option>').join('')+'</select>'+
+    csBtn(key,false)+
     '<button class="icon-btn" data-action="del-app" data-id="'+a.id+'">✕</button></div></div>'+
     '<span class="badge '+(APP_MAP[a.status]||'mut')+'">'+esc(a.status||'想申请')+'</span>'+
     '<div class="mat-zone"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">'+
       '<span class="tiny">资料</span><button class="btn sm" data-action="upload-app" data-id="'+a.id+'">↑ 上传</button></div>'+
-      matList(a.materials,a.id)+'</div></div>').join('')
+      matList(a.materials,a.id)+'</div></div>'; }).join('')
     : '<div class="empty">还没有申请。点「新申请」建一条，从想申请到已拿到全程追踪 ⊞</div>';
   document.getElementById('view-applications').innerHTML=
     '<div class="view-head"><div class="titlewrap"><span class="eyebrow">03 / APPLICATIONS</span></div><button class="btn primary" data-action="add-app">+ 新申请</button></div>'+
@@ -1563,11 +1643,15 @@ function renderPrep(){
   const total=store.prep.length; const sum=store.prep.reduce((s,p)=>s+p.level,0);
   const pct=total? Math.round(sum/(total*3)*100):0; const units=12; const on=Math.round(pct/100*units); const col=pctColor(pct);
   let big='<div class="bigbar">'; for(let i=0;i<units;i++) big+='<span class="u'+(i<on?' on':'')+'"'+(i<on?' style="background:'+col+'"':'')+'></span>'; big+='</div>';
-  const items=store.prep.length? store.prep.map(p=>'<div class="prep-item"><div class="pi-top"><div>'+
-    '<div class="nm">'+esc(p.name)+'</div>'+(p.note?'<div class="note">'+esc(p.note)+'</div>':'')+'</div>'+
+  const items=store.prep.length? store.prep.map(p=>{ const key='prep:'+p.id; const st=csBox(key)+csBody(key);
+    return '<div class="prep-item"'+(st?' style="'+st+'"':'')+'><div class="pi-top"><div>'+
+    '<div class="nm">'+esc(p.name)+'</div>'+(p.note?'<div class="note">'+esc(p.note)+'</div>':'')+
+    (p.link?'<div class="prep-link-btns" style="margin-top:7px"><a class="btn sm" href="'+esc(p.link)+'"'+linkAttrs(p.link)+' style="text-decoration:none">↗ 打开</a>'+
+      '<button class="btn sm ghost" data-action="preview-web-big" data-url="'+esc(p.link)+'">⤢ 预览</button></div>':'')+'</div>'+
     '<div style="display:flex;align-items:center;gap:8px">'+segBlocks(p.id,p.level)+
+    csBtn(key,false)+
     '<button class="icon-btn" data-action="edit-prep" data-id="'+p.id+'" title="改备注" style="color:var(--accent)">✎</button>'+
-    '<button class="icon-btn" data-action="del-prep" data-id="'+p.id+'">✕</button></div></div></div>').join('')
+    '<button class="icon-btn" data-action="del-prep" data-id="'+p.id+'">✕</button></div></div></div>'; }).join('')
     : '<div class="empty">还没有准备项。点「加准备项」，用 0–3 级追踪每项练到哪 ◆</div>';
   document.getElementById('view-prep').innerHTML=
     '<div class="view-head"><div class="titlewrap"><span class="eyebrow">04 / PREP</span></div><button class="btn primary" data-action="add-prep">+ 加准备项</button></div>'+
@@ -1959,6 +2043,8 @@ function handleClick(btn){
     case 'chat-send': { sendChat(); break; }
     case 'chat-clear': { chatMsgs=[]; const b=document.getElementById('chat-body'); if(b) b.innerHTML='<span class="muted small">和 AI 随便聊聊（部署并配置 Key 后可用）</span>'; break; }
     case 'open-add-widget': openAddWidget(); break;
+    case 'card-style': openCardStyle(btn.dataset.key, btn.dataset.w==='1'); break;
+    case 'card-style-reset': { delete store.cardStyle[btn.dataset.key]; save(); closeModal(); refresh(); break; }
     case 'add-quote': openForm('加一句鼓励语',[{name:'text',label:'写给自己的话',type:'textarea',placeholder:'如：你被允许安静下来。'}],
       v=>{ if((v.text||'').trim()){ store.quotes.push(v.text.trim()); _quoteIdx=store.quotes.length-1; save(); renderWorkbench(); } }); break;
     case 'del-todo': store.todos=store.todos.filter(t=>t.id!==btn.dataset.id); save(); refresh(); break;
@@ -1969,21 +2055,26 @@ function handleClick(btn){
       {name:'improve',label:'进度 / 怎么改',type:'textarea',placeholder:'现在到哪、下一步改什么'},
       {name:'aiUrl',label:'AI 对话链接（可选）',placeholder:'claude.ai / 某个对话链接'},
       {name:'note',label:'备注'},{name:'date',label:'添加日期',type:'date',value:todayStr()}],
-      v=>{ store.websites.push({id:uid(),name:v.name,url:v.url,note:v.note,date:v.date,cat:v.cat||'其他',status:v.status||'进行',improve:v.improve||'',aiUrl:v.aiUrl||'',children:[],open:false}); save(); refresh(); }); break;
+      v=>{ const links=(v.aiUrl&&v.aiUrl.trim())? [{id:uid(),name:'AI 对话',url:v.aiUrl.trim()}] : []; store.websites.push({id:uid(),name:v.name,url:v.url,note:v.note,date:v.date,cat:v.cat||'其他',status:v.status||'进行',improve:v.improve||'',aiUrl:v.aiUrl||'',aiLinks:links,children:[],open:false,kanbanClosed:false}); save(); refresh(); }); break;
     case 'edit-web': { const w=store.websites.find(x=>x.id===btn.dataset.id); if(w) openForm('改网站',[
       {name:'name',label:'名称',value:w.name},{name:'url',label:'链接',value:w.url},
       {name:'cat',label:'分类',type:'select',value:w.cat,options:WEB_CATS.map(c=>({v:c,t:c}))},
       {name:'status',label:'状态',type:'select',value:w.status,options:WEB_STATUS.map(s=>({v:s,t:s}))},
       {name:'improve',label:'进度 / 怎么改',type:'textarea',value:w.improve||''},
-      {name:'aiUrl',label:'AI 对话链接',value:w.aiUrl||''},
       {name:'note',label:'备注',value:w.note||''}],
-      v=>{ w.name=v.name;w.url=v.url;w.cat=v.cat;w.status=v.status;w.improve=v.improve;w.aiUrl=v.aiUrl;w.note=v.note; save(); refresh(); }); break; }
+      v=>{ w.name=v.name;w.url=v.url;w.cat=v.cat;w.status=v.status;w.improve=v.improve;w.note=v.note; save(); refresh(); },
+      '对话/链接（Claude、GitHub 等）在卡片上用「+ 对话/链接」按钮增删。'); break; }
     case 'set-web-view': _webView=btn.dataset.mode; renderWebsites(); break;
     case 'toggle-web-details': { const w=store.websites.find(x=>x.id===btn.dataset.id); if(w){ w.open=!w.open; save(); renderWebsites(); } break; }
     case 'add-web-child': { const w=store.websites.find(x=>x.id===btn.dataset.id); if(w) openForm('加子链接（'+w.name+'）',
       [{name:'name',label:'名称',placeholder:'如 GitHub'},{name:'url',label:'链接',placeholder:'https://... 或 vscode://'}],
       v=>{ if((v.name||'').trim()&&v.url){ w.children.push({id:uid(),name:v.name.trim(),url:v.url}); w.open=true; save(); renderWebsites(); } }); break; }
     case 'del-web-child': { const w=store.websites.find(x=>x.id===btn.dataset.parent); if(w){ w.children=w.children.filter(c=>c.id!==btn.dataset.id); save(); renderWebsites(); } break; }
+    case 'add-web-ai': { const w=store.websites.find(x=>x.id===btn.dataset.id); if(w) openForm('加对话 / 链接（'+w.name+'）',
+      [{name:'name',label:'名称',placeholder:'如 Claude / GitHub / 某个对话'},{name:'url',label:'链接',placeholder:'https://claude.ai/... 或 github.com/...'}],
+      v=>{ if((v.name||'').trim()&&v.url){ if(!Array.isArray(w.aiLinks)) w.aiLinks=[]; w.aiLinks.push({id:uid(),name:v.name.trim(),url:v.url}); save(); renderWebsites(); } }); break; }
+    case 'del-web-ai': { const w=store.websites.find(x=>x.id===btn.dataset.parent); if(w){ w.aiLinks=(w.aiLinks||[]).filter(a=>a.id!==btn.dataset.id); save(); renderWebsites(); } break; }
+    case 'toggle-kanban-preview': { const w=store.websites.find(x=>x.id===btn.dataset.id); if(w){ w.kanbanClosed=!w.kanbanClosed; save(); renderWebsites(); } break; }
     case 'del-web': store.websites=store.websites.filter(w=>w.id!==btn.dataset.id); save(); refresh(); break;
     case 'preview-web': { const id=btn.dataset.id, url=btn.dataset.url; const slot=document.getElementById('wprev-'+id); if(!slot) break;
       if(slot.dataset.open==='1'){ slot.innerHTML=''; slot.dataset.open='0'; btn.textContent='▦ 预览'; }
@@ -2077,11 +2168,13 @@ function handleClick(btn){
     case 'del-mat': { const t=btn.dataset.target; if(t==='global') store.materials=store.materials.filter(m=>m.id!==btn.dataset.id);
       else { const ap=store.applications.find(x=>x.id===t); if(ap) ap.materials=ap.materials.filter(m=>m.id!==btn.dataset.id); }
       fileDel(btn.dataset.fid); save(); refresh(); break; }
-    case 'add-prep': openForm('加准备项',[{name:'name',label:'准备事项'},{name:'note',label:'备注',placeholder:'练到哪了'}],
-      v=>{ if(v.name.trim()){ store.prep.push({id:uid(),name:v.name.trim(),note:v.note,level:0}); save(); refresh(); } }); break;
+    case 'add-prep': openForm('加准备项',[{name:'name',label:'准备事项'},{name:'note',label:'备注',placeholder:'练到哪了'},
+      {name:'link',label:'链接（可选，点「打开」开新模块）',placeholder:'https://... 或 obsidian:// 等'}],
+      v=>{ if(v.name.trim()){ store.prep.push({id:uid(),name:v.name.trim(),note:v.note,link:v.link||'',level:0}); save(); refresh(); } }); break;
     case 'edit-prep': { const p=store.prep.find(q=>q.id===btn.dataset.id); if(p) openForm('改准备项',
-      [{name:'name',label:'名称',value:p.name},{name:'note',label:'备注',type:'textarea',value:p.note||''}],
-      v=>{ if(v.name.trim()){ p.name=v.name.trim(); p.note=v.note; save(); refresh(); } }); break; }
+      [{name:'name',label:'名称',value:p.name},{name:'note',label:'备注',type:'textarea',value:p.note||''},
+       {name:'link',label:'链接（点「打开」开新模块）',value:p.link||'',placeholder:'https://...'}],
+      v=>{ if(v.name.trim()){ p.name=v.name.trim(); p.note=v.note; p.link=v.link||''; save(); refresh(); } }); break; }
     case 'del-prep': store.prep=store.prep.filter(p=>p.id!==btn.dataset.id); save(); refresh(); break;
     case 'set-prep-level': { const p=store.prep.find(q=>q.id===btn.dataset.id); if(p){ const lv=+btn.dataset.lvl; p.level=(p.level===lv?lv-1:lv); save(); refresh(); } break; }
     case 'backup': openBackup(); break;
@@ -2176,8 +2269,22 @@ document.addEventListener('click',e=>{ const b=e.target.closest('[data-action]')
 document.addEventListener('change',e=>{ const el=e.target.closest('[data-action]'); if(el) handleChange(el); });
 document.addEventListener('submit',e=>{ const f=e.target.closest('[data-form]'); if(f){ e.preventDefault(); handleSubmit(f); } });
 document.getElementById('nav').addEventListener('click',e=>{ const n=e.target.closest('.nav-item'); if(n) switchView(n.dataset.view); });
-document.getElementById('modal').addEventListener('click',e=>{ if(e.target.id==='modal') closeModal(); });
+/* 点空白不再关闭：只有「取消/关闭」按钮或 Esc 才关 */
 document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeModal(); });
+/* 小窗口可拖动（抓标题栏 h3） */
+(function(){
+  const modal=document.getElementById('modal'); if(!modal) return;
+  let box=null,sx=0,sy=0,ox=0,oy=0,drag=false;
+  function start(e){ const t=e.touches?e.touches[0]:e; const h=(e.target.closest?e.target.closest('.modal-box h3'):null); if(!h) return;
+    box=document.getElementById('modal-body'); const r=box.getBoundingClientRect();
+    box.style.position='fixed'; box.style.margin='0'; box.style.left=r.left+'px'; box.style.top=r.top+'px';
+    ox=r.left; oy=r.top; sx=t.clientX; sy=t.clientY; drag=true; if(e.cancelable) e.preventDefault(); }
+  function move(e){ if(!drag||!box) return; const t=e.touches?e.touches[0]:e;
+    box.style.left=Math.max(4,ox+t.clientX-sx)+'px'; box.style.top=Math.max(4,oy+t.clientY-sy)+'px'; if(e.cancelable) e.preventDefault(); }
+  function end(){ drag=false; }
+  modal.addEventListener('mousedown',start); document.addEventListener('mousemove',move); document.addEventListener('mouseup',end);
+  modal.addEventListener('touchstart',start,{passive:false}); document.addEventListener('touchmove',move,{passive:false}); document.addEventListener('touchend',end);
+})();
 document.addEventListener('visibilitychange',()=>{
   if(document.hidden){ if(_clockTimer){ clearInterval(_clockTimer); _clockTimer=null; } }
   else { startClock(); }
