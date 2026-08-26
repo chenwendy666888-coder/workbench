@@ -367,10 +367,10 @@ a.qname:hover{color:var(--accent);text-decoration:underline;}
 
 /* widget home */
 .home-edit-bar{display:flex;align-items:center;gap:10px;margin-bottom:14px;}
-.widget-grid{column-width:300px;column-gap:16px;}
-.widget{min-width:0;break-inside:avoid;-webkit-column-break-inside:avoid;page-break-inside:avoid;margin:0 0 16px;width:100%;}
-.widget.full{column-span:all;-webkit-column-span:all;}
-.widget.wide{column-span:none;}
+.widget-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));grid-auto-rows:8px;column-gap:16px;row-gap:16px;grid-auto-flow:row dense;}
+.widget{min-width:0;align-self:start;grid-row-end:span 30;}
+.widget.full{grid-column:1/-1;}
+.widget.wide{grid-column:span 2;}
 .widget-grid.editing .widget{border:1px dashed var(--accent-line);border-radius:var(--radius);padding:6px;background:var(--surface-2);cursor:grab;transition:.1s;}
 .widget-grid.editing .widget:hover{border-color:var(--accent);}
 .widget.dragging{opacity:.4;}
@@ -388,7 +388,7 @@ a.qname:hover{color:var(--accent);text-decoration:underline;}
   border-radius:var(--radius);padding:9px;margin:0 0 8px;white-space:pre-wrap;word-break:break-word;max-height:220px;overflow:auto;}
 
 /* websites preview */
-.web-list{display:flex;flex-direction:column;gap:13px;}
+.web-list{margin:0;}
 .web-card .card-top{align-items:center;}
 .viewtog{display:inline-flex;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;}
 .viewtog button{border:none;background:var(--surface);color:var(--muted);font-family:var(--f-ui);font-size:12px;
@@ -413,8 +413,8 @@ a.qname:hover{color:var(--accent);text-decoration:underline;}
 .wprev-frame{margin-top:9px;height:360px;border:1px solid var(--border-2);border-radius:var(--radius);overflow:hidden;background:#fff;}
 .wprev-frame iframe{border:none;display:block;}
 /* ===== card customizer / free adjust ===== */
-.web-list{column-width:300px;column-gap:13px;}
-.web-card{break-inside:avoid;-webkit-column-break-inside:avoid;page-break-inside:avoid;margin:0 0 13px;width:100%;}
+.web-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));grid-auto-rows:8px;column-gap:13px;row-gap:13px;grid-auto-flow:row dense;}
+.web-card{align-self:start;grid-row-end:span 30;}
 .cs-btn{color:var(--muted);}
 .cs-btn:hover{color:var(--accent);}
 .web-ai-row{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:8px 0 2px;}
@@ -1353,7 +1353,7 @@ const WIDGETS={
   inspire:{name:'灵感推荐',cls:'',render:wgInspire},
   quicklinks:{name:'常用入口',cls:'',render:wgQuick},
   ailinks:{name:'AI 助手',cls:'',render:wgAI},
-  todos:{name:'待办',cls:'wide',render:wgTodos},
+  todos:{name:'待办',cls:'',render:wgTodos},
   scratch:{name:'随手小记',cls:'',render:quickNoteHTML},
   habits:{name:'今日习惯',cls:'',render:wgHabits},
   projects:{name:'项目进度',cls:'',render:wgProjects},
@@ -1371,6 +1371,31 @@ function widgetWrap(id){ const w=WIDGETS[id]; if(!w) return '';
     (_homeEdit? '<div class="widget-bar"><span class="whandle">⠿ '+w.name+'</span><span style="display:flex;gap:4px">'+csBtn(key,true)+'<button class="icon-btn" data-action="remove-widget" data-wid="'+id+'" title="移除">✕</button></span></div>':'')+
     '<div class="widget-body"'+(body?' style="'+body+'"':'')+'>'+w.render()+'</div></div>';
 }
+let _masonryRO=null;
+function layoutMasonry(grid){
+  if(!grid) return; const cs=getComputedStyle(grid); if(cs.display!=='grid') return;
+  const rowH=parseFloat(cs.gridAutoRows)||8; const gap=parseFloat(cs.rowGap)||16;
+  grid.querySelectorAll('.widget, .web-card').forEach(it=>{
+    const h=it.getBoundingClientRect().height; if(!h) return;
+    const span=Math.max(1,Math.ceil((h+gap)/(rowH+gap)));
+    it.style.gridRowEnd='span '+span;
+  });
+}
+function observeMasonry(grid){
+  if(_masonryRO){ _masonryRO.disconnect(); _masonryRO=null; }
+  if(!grid || getComputedStyle(grid).display!=='grid') return;
+  layoutMasonry(grid);
+  if(typeof ResizeObserver==='function'){
+    _masonryRO=new ResizeObserver(()=>layoutMasonry(grid));
+    grid.querySelectorAll('.widget, .web-card').forEach(it=>_masonryRO.observe(it));
+  }
+  requestAnimationFrame(()=>layoutMasonry(grid));
+  setTimeout(()=>layoutMasonry(grid),300);
+}
+let _masonryRz=null;
+window.addEventListener('resize',()=>{ clearTimeout(_masonryRz); _masonryRz=setTimeout(()=>{
+  layoutMasonry(document.getElementById('widget-grid')); layoutMasonry(document.querySelector('.web-list'));
+},120); });
 function renderWorkbench(){
   const l=homeLayout();
   const bar='<div class="home-edit-bar">'+
@@ -1382,6 +1407,7 @@ function renderWorkbench(){
     bar+'<div class="widget-grid'+(_homeEdit?' editing':'')+'" id="widget-grid">'+l.map(widgetWrap).join('')+'</div>';
   if(_homeEdit) attachWidgetDrag();
   tickClock(); loadWeather(); loadFeed(); loadDaily();
+  observeMasonry(document.getElementById('widget-grid'));
 }
 function attachWidgetDrag(){
   const grid=document.getElementById('widget-grid'); if(!grid) return; let dragged=null;
@@ -1421,9 +1447,9 @@ const CS_COLORS=[
   ['rgba(120,140,160,.16)','石墨']
 ];
 const CS_H=[['0','自动'],['180','矮'],['260','中'],['380','高']];
-const CS_W=[['1','正常'],['full','整行通栏']];
+const CS_W=[['1','1 格'],['2','2 格'],['full','整行']];
 function csGet(key){ return (store.cardStyle&&store.cardStyle[key])||{}; }
-function csBox(key){ const s=csGet(key); let o=''; if(s.bg){ o+='background:'+s.bg+';'; } if(s.w==='full') o+='column-span:all;-webkit-column-span:all;'; return o; }
+function csBox(key){ const s=csGet(key); let o=''; if(s.bg){ o+='background:'+s.bg+';'; } if(s.w==='full') o+='grid-column:1/-1;'; else if(s.w==='2'||s.w===2) o+='grid-column:span 2;'; else if(s.w==='1'||s.w===1) o+='grid-column:span 1;'; return o; }
 function csBody(key){ const s=csGet(key); return (s.h&&+s.h>0)? 'min-height:'+(+s.h)+'px;' : ''; }
 function csBtn(key,allowW){ return '<button class="icon-btn cs-btn" data-action="card-style" data-key="'+esc(key)+'" data-w="'+(allowW?'1':'0')+'" title="调整大小 / 颜色">⚙</button>'; }
 function openCardStyle(key,allowW){
@@ -1538,6 +1564,7 @@ function renderWebsites(){
     '<div class="view-head"><div class="titlewrap"><span class="eyebrow">01 / SITES</span></div>'+
       '<div style="display:flex;gap:8px;align-items:center">'+webViewToggle()+'<button class="btn primary" data-action="add-web">+ 添加网站</button></div></div>'+
     body;
+  if(_webView==='card') observeMasonry(document.querySelector('.web-list'));
 }
 
 /* ===== TEMPLATES (2-level: 大类 > 子类 > 条目; 3 views) ===== */
