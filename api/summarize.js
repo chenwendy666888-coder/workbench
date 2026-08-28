@@ -23,10 +23,10 @@ export default async function handler(req, res) {
   const hit = cache.get(key);
   if (hit && Date.now() - hit.t < CACHE_TTL) return res.status(200).json({ summary: hit.v, cached: true });
 
-  const apiKey = process.env.CHAT_API_KEY;
-  const base = process.env.CHAT_API_BASE || 'https://api.openai.com/v1';
-  const model = process.env.CHAT_MODEL || 'gpt-4o-mini';
-  if (!apiKey) return res.status(500).json({ error: '未配置 CHAT_API_KEY' });
+  const apiKey = process.env.DASHSCOPE_API_KEY;
+  const base = process.env.CHAT_API_BASE || 'https://ws-d1w7lv3jt8l5ysaq.cn-beijing.maas.aliyuncs.com/compatible-mode/v1';
+  const model = process.env.CHAT_MODEL || 'qwen-plus';
+  if (!apiKey) return res.status(500).json({ error: '未配置 DASHSCOPE_API_KEY' });
 
   try {
     const upstream = await fetch(`${base}/chat/completions`, {
